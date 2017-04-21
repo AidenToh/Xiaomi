@@ -56,31 +56,37 @@ metadata {
     }
     
 	// UI tile definitions
-	tiles(scale: 2) {
-		multiAttributeTile(name:"temperature", type:"generic", width:6, height:4) {
-			tileAttribute("device.temperature", key:"PRIMARY_CONTROL"){
-			    attributeState("default", label:'${currentValue}°',
-                backgroundColors:[
-					[value: 0, color: "#153591"],
-					[value: 5, color: "#1e9cbb"],
-					[value: 10, color: "#90d2a7"],
-					[value: 15, color: "#44b621"],
-					[value: 20, color: "#f1d801"],
-					[value: 25, color: "#d04e00"],
-					[value: 30, color: "#bc2323"],
-					[value: 44, color: "#1e9cbb"],
-					[value: 59, color: "#90d2a7"],
-					[value: 74, color: "#44b621"],
-					[value: 84, color: "#f1d801"],
-					[value: 95, color: "#d04e00"],
-					[value: 96, color: "#bc2323"]                                      
-				]
-			)
+    tiles(scale: 2) {
+        multiAttributeTile(name: "temp&humidity", type: "generic", width: 6, height: 4, canChangeIcon: true) {
+            tileAttribute("temp&humidity", key: "PRIMARY_CONTROL") {
+                attributeState ("temp&humidity", label: '${currentValue}',
+                                backgroundColors:[
+                                    [value: 0, color: "#153591"],
+                                    [value: 5, color: "#1e9cbb"],
+                                    [value: 10, color: "#90d2a7"],
+                                    [value: 15, color: "#44b621"],
+                                    [value: 20, color: "#f1d801"],
+                                    [value: 25, color: "#d04e00"],
+                                    [value: 30, color: "#bc2323"],
+                                    [value: 44, color: "#1e9cbb"],
+                                    [value: 59, color: "#90d2a7"],
+                                    [value: 74, color: "#44b621"],
+                                    [value: 84, color: "#f1d801"],
+                                    [value: 95, color: "#d04e00"],
+                                    [value: 96, color: "#bc2323"]                                      
+                                ]
+
+                               )
             }
+
             tileAttribute("device.lastCheckin", key: "SECONDARY_CONTROL") {
-    			attributeState("default", label:'Last Update: ${currentValue}', icon: "st.Health & Wellness.health9")
-			}
-		}
+                attributeState("default", label:'Last Update: ${currentValue}', icon: "st.Health & Wellness.health9")
+            }
+        }
+        
+        standardTile("temperature", "device.temperature", inactiveLabel: false, width: 2, height: 2) {
+            state "temperature", label: '${currentValue}°C', icon:"st.Weather.weather2"
+        }
 		standardTile("humidity", "device.humidity", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
 			state "default", label:'${currentValue}%', icon:"st.Weather.weather12"
 		}
@@ -89,8 +95,8 @@ metadata {
 			state "default", label:'${currentValue}% battery', unit:""
 		}
         
-		valueTile("temperature2", "device.temperature", decoration: "flat", inactiveLabel: false) {
-			state "default", label:'${currentValue}°', icon: "st.Weather.weather2",
+        valueTile("temp&humidity2", "temp&humidity", decoration: "flat", inactiveLabel: false) {
+            state "default", label:'${currentValue}', icon: "st.Weather.weather2",
                 backgroundColors:[
 					[value: 0, color: "#153591"],
 					[value: 5, color: "#1e9cbb"],
@@ -112,25 +118,53 @@ metadata {
 			state "default", action:"refresh.refresh", icon:"st.secondary.refresh"
         }
             
-		main(["temperature2"])
-		details(["temperature", "battery", "humidity","refresh"])
+		main(["temp&humidity2"])
+		details(["temp&humidity", "temperature", "humidity", "battery", "refresh"])
 	}
 }
 
+
+
+
 // Parse incoming device messages to generate events
 def parse(String description) {
-	log.debug "RAW: $description"
+	log.debug "parse: desc: $description"
 	def name = parseName(description)
-    log.debug "Parsename: $name"
 	def value = parseValue(description)
-    log.debug "Parsevalue: $value"
-	def unit = name == "temperature" ? getTemperatureScale() : (name == "humidity" ? "%" : null)
-	def result = createEvent(name: name, value: value, unit: unit)
-    log.debug "Evencreated: $name, $value, $unit"
-	log.debug "Parse returned ${result?.descriptionText}"
+	def temperatureUnit = getTemperatureScale()
+    def zeroUnit = '--'
+    def mergedValue
+
     def now = new Date().format("yyyy MMM dd EEE h:mm:ss a", location.timeZone)
     sendEvent(name: "lastCheckin", value: now)
-	return result
+    if (name == "temperature" && (value == "47.9" || value == "48.1")) {
+    	log.debug "wrong temp: " + value
+    } else {    	
+    	if (name == "temperature") {
+        	log.debug "report temp event>> currentTemp: $value, beforeTemp: $state.beforeTemp"
+            log.debug "report temp event>> beforeHumidity: $state.beforeHumidity"
+        	state.beforeTemp = value
+
+           	mergedValue = "${value == null ? zeroUnit : value}°$temperatureUnit / ${state.beforeHumidity == null ? zeroUnit : state.beforeHumidity}%"
+            sendEvent(name:"temp&humidity", value: mergedValue, displayed: false)
+        } else if (name == "humidity") {
+        	log.debug "report humidity>> currentHumidity: $value, beforeHumidity: $state.beforeHumidity"
+            log.debug "report humidity>> beforeTemp: $state.beforeTemp"        	
+        	state.beforeHumidity = value
+
+            mergedValue = "${state.beforeTemp == null ? zeroUnit : state.beforeTemp}°$temperatureUnit / ${value == null ? zeroUnit : value}%"
+            sendEvent(name:"temp&humidity", value: mergedValue, displayed: false)
+        }
+        
+		def result = createEvent(name: name, value: value, unit: unit)
+        //log.debug "Parse returned ${result?.descriptionText}"
+        
+
+        
+        return result
+    }
+	
+	
 }
 
 private String parseName(String description) {

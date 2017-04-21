@@ -51,8 +51,8 @@ metadata {
 	tiles(scale: 2) {
 		multiAttributeTile(name:"motion", type: "generic", width: 6, height: 4){
 			tileAttribute ("device.motion", key: "PRIMARY_CONTROL") {
-				attributeState "active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#ffa81e"
-				attributeState "inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#79b821"
+				attributeState "active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#53a7c0"
+				attributeState "inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#ffffff"
 			}
             tileAttribute("device.lastCheckin", key: "SECONDARY_CONTROL") {
     			attributeState("default", label:'Last Update: ${currentValue}',icon: "st.Health & Wellness.health9")
@@ -181,14 +181,16 @@ def configure() {
     log.debug "${device.zigbeeId}"
     log.debug "${zigbeeEui}"
 	def configCmds = [
-			//battery reporting and heartbeat
+       		// configure report commands
+        	// zcl global send-me-a-report [cluster] [attr] [type] [min-interval] [max-interval] [min-change]
+            // battery reporting and heartbeat
 			"zdo bind 0x${device.deviceNetworkId} 1 ${endpointId} 1 {${device.zigbeeId}} {}", "delay 200",
 			"zcl global send-me-a-report 1 0x20 0x20 600 3600 {01}", "delay 200",
 			"send 0x${device.deviceNetworkId} 1 ${endpointId}", "delay 1500",
-
-			// motion reporting
-			"zcl global send-me-a-report 0x406 0x0000 0x18 0 3600 {01}", "delay 200",
-			"send 0x${device.deviceNetworkId} 1 ${endpointId}", "delay 1500",
+            
+            // motion reporting
+            "zcl global send-me-a-report 0x406 0x0000 0x18 0 3600 {01}", "delay 200",
+            "send 0x${device.deviceNetworkId} 1 ${endpointId}", "delay 1500",
 
 			// Writes CIE attribute on end device to direct reports to the hub's EUID
 			"zcl global write 0x500 0x10 0xf0 {${zigbeeEui}}", "delay 200",
@@ -312,7 +314,8 @@ private String swapEndianHex(String hex) {
 }
 
 def stopMotion() {
-   sendEvent(name:"motion", value:"inactive")
+	log.debug "stopMotion()"
+    sendEvent(name:"motion", value:"inactive")
 }
 
 def reset() {
